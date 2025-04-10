@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGI Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+            color: #1f2937; /* Dark gray text */
+        }
+        /* Custom button styling */
+        .choice-button {
+            transition: all 0.2s ease-in-out;
+        }
+        .choice-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        /* Progress bar styling */
+        .progress-bar-container {
+            background-color: #e5e7eb; /* Gray background for progress bar */
+            border-radius: 0.5rem; /* Rounded corners */
+            overflow: hidden; /* Ensure inner bar stays rounded */
+            height: 1.5rem; /* Height of the progress bar */
+        }
+        .progress-bar-fill {
+            background-color: #3b82f6; /* Blue fill */
+            height: 100%;
+            transition: width 0.5s ease-in-out; /* Smooth transition */
+            text-align: center;
+            color: white;
+            font-weight: 500;
+            line-height: 1.5rem; /* Center text vertically */
+            border-radius: 0.5rem; /* Rounded corners */
+        }
+        /* Message box styling */
+        #message-box {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(31, 41, 55, 0.9); /* Dark semi-transparent */
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            pointer-events: none; /* Don't block clicks */
+        }
+        #message-box.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-white p-6 md:p-8 rounded-lg shadow-xl max-w-2xl w-full">
+        <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">AGI Simulator</h1>
+
+        <div class="grid grid-cols-3 gap-4 mb-6 text-center">
+            <div>
+                <span class="block text-sm font-medium text-gray-500">Compute</span>
+                <span id="compute-value" class="text-xl font-semibold text-blue-600">100</span>
+            </div>
+            <div>
+                <span class="block text-sm font-medium text-gray-500">Data</span>
+                <span id="data-value" class="text-xl font-semibold text-green-600">100</span>
+            </div>
+            <div>
+                <span class="block text-sm font-medium text-gray-500">Research</span>
+                <span id="research-value" class="text-xl font-semibold text-purple-600">50</span>
+            </div>
+        </div>
+
+        <div class="mb-6 space-y-3">
+            <div>
+                <label for="intelligence-progress" class="block text-sm font-medium text-gray-700 mb-1">Intelligence</label>
+                <div class="progress-bar-container">
+                    <div id="intelligence-progress" class="progress-bar-fill bg-blue-500" style="width: 10%;">10%</div>
+                </div>
+            </div>
+            <div>
+                <label for="alignment-progress" class="block text-sm font-medium text-gray-700 mb-1">Alignment</label>
+                <div class="progress-bar-container">
+                    <div id="alignment-progress" class="progress-bar-fill bg-green-500" style="width: 50%;">50%</div>
+                </div>
+            </div>
+             <div>
+                <label for="risk-progress" class="block text-sm font-medium text-gray-700 mb-1">Risk Level</label>
+                <div class="progress-bar-container">
+                    <div id="risk-progress" class="progress-bar-fill bg-red-500" style="width: 5%;">5%</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="event-area" class="bg-gray-100 p-4 rounded-md mb-6 min-h-[100px]">
+            <p id="event-text" class="text-gray-700">Welcome to the AGI Simulator! Your goal is to develop a beneficial AGI. Click 'Next Turn' to begin.</p>
+        </div>
+
+        <div id="choices-area" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            </div>
+
+        <div class="text-center">
+            <button id="next-turn-button" class="choice-button bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md">
+                Next Turn
+            </button>
+        </div>
+
+        <div class="text-center mt-4 text-sm text-gray-500">
+            Turn: <span id="turn-counter">0</span>
+        </div>
+
+         <div id="message-box">Message goes here</div>
+    </div>
+
+    <script>
+        // --- Game State ---
+        let gameState = {
+            turn: 0,
+            resources: {
+                compute: 100,
+                data: 100,
+                research: 50,
+            },
+            agi: {
+                intelligence: 10, // Progress percentage
+                alignment: 50,    // Progress percentage
+                risk: 5           // Progress percentage
+            },
+            currentEvent: null,
+            gameOver: false,
+            messageTimeout: null // To manage message display timing
+        };
+
+        // --- DOM Elements ---
+        const computeValueEl = document.getElementById('compute-value');
+        const dataValueEl = document.getElementById('data-value');
+        const researchValueEl = document.getElementById('research-value');
+        const intelligenceProgressEl = document.getElementById('intelligence-progress');
+        const alignmentProgressEl = document.getElementById('alignment-progress');
+        const riskProgressEl = document.getElementById('risk-progress');
+        const eventTextEl = document.getElementById('event-text');
+        const choicesAreaEl = document.getElementById('choices-area');
+        const nextTurnButton = document.getElementById('next-turn-button');
+        const turnCounterEl = document.getElementById('turn-counter');
+        const messageBoxEl = document.getElementById('message-box');
+
+        // --- Game Data (Events & Choices) ---
+        // Note: Events can now re-trigger if their conditions are met again.
+        const events = [
+            // Early Game Events
+            {
+                id: 'initial_boost',
+                text: "An unexpected hardware donation doubles your available compute power for the next turn!",
+                condition: (state) => state.turn === 1, // Still only happens on turn 1
+                immediateEffect: (state) => {
+                    state.resources.compute *= 2;
+                    showMessage("Hardware donation received! Compute doubled for this turn.");
+                },
+                choices: [] // No choice, just info
+            },
+            {
+                id: 'data_source_debate',
+                text: "A new, massive dataset is available, but its origins are ethically questionable. Use it?",
+                condition: (state) => state.agi.intelligence > 15 && state.agi.intelligence < 40 && !state.currentEvent, // Added !state.currentEvent to prevent multiple events same turn
+                choices: [
+                    { text: "Use the data (Boosts Data & Intelligence, Lowers Alignment)", effect: (state) => { state.resources.data += 50; state.agi.intelligence += 5; state.agi.alignment -= 10; state.agi.risk += 2; showMessage("Used questionable data. Intelligence up, Alignment down."); } },
+                    { text: "Reject the data (Lowers Data potential, Maintains Alignment)", effect: (state) => { state.resources.data -= 10; state.agi.alignment += 5; showMessage("Rejected questionable data. Alignment maintained."); } }
+                ]
+            },
+            {
+                id: 'research_focus',
+                text: "Choose your primary research focus for the near future:",
+                condition: (state) => state.turn > 3 && state.resources.research >= 20 && !state.currentEvent, // Added resource check and !state.currentEvent
+                choices: [
+                    { text: "Focus on Core Intelligence (Costs Research, Boosts Intelligence)", effect: (state) => { state.resources.research -= 20; state.agi.intelligence += 8; state.agi.risk += 1; showMessage("Focused on core intelligence."); } },
+                    { text: "Focus on Safety & Alignment (Costs Research, Boosts Alignment)", effect: (state) => { state.resources.research -= 20; state.agi.alignment += 10; state.agi.risk -= 2; showMessage("Focused on safety and alignment."); } },
+                    { text: "Focus on Efficiency (Costs Research, Reduces Compute/Data needs slightly)", effect: (state) => { state.resources.research -= 15; /* Add logic later to reduce costs */ showMessage("Focused on efficiency (effect pending)."); } }
+                ]
+            },
+             // Mid Game Events
+            {
+                id: 'public_concern',
+                text: "Public awareness of AGI is growing, leading to calls for stricter regulations. How do you respond?",
+                condition: (state) => state.agi.intelligence > 30 && state.agi.risk > 15 && !state.currentEvent,
+                choices: [
+                    { text: "Engage openly, emphasize safety (Boosts Alignment, Costs Research)", effect: (state) => { state.agi.alignment += 8; state.resources.research -= 15; state.agi.risk -= 3; showMessage("Engaged with public concerns, emphasizing safety."); } },
+                    { text: "Downplay risks, focus on benefits (Lowers Alignment, Small Risk Increase)", effect: (state) => { state.agi.alignment -= 5; state.agi.risk += 3; showMessage("Downplayed risks to maintain development speed."); } },
+                    { text: "Operate more secretively (Significant Risk Increase, Lowers Alignment)", effect: (state) => { state.agi.risk += 10; state.agi.alignment -= 10; showMessage("Increased secrecy. Risk and distrust grow."); } }
+                ]
+            },
+            {
+                id: 'unexpected_breakthrough',
+                text: "A sudden theoretical breakthrough significantly accelerates potential intelligence growth!",
+                condition: (state) => state.agi.intelligence > 40 && Math.random() < 0.10 && !state.currentEvent, // Reduced probability slightly, added !state.currentEvent
+                immediateEffect: (state) => {
+                    state.agi.intelligence += 15;
+                    state.agi.risk += 5; // Faster growth often means higher risk initially
+                    showMessage("Major breakthrough! Intelligence surged.");
+                },
+                choices: []
+            },
+             // Late Game Events / Potential Endings
+            {
+                id: 'alignment_crisis',
+                text: "The AGI is showing signs of diverging goals. A critical alignment check is needed!",
+                condition: (state) => state.agi.intelligence > 60 && state.agi.alignment < 30 && !state.currentEvent,
+                 choices: [
+                    { text: "Halt progress, focus ALL resources on alignment (High Cost, Potential Fix)", effect: (state) => {
+                        state.resources.compute = Math.max(0, state.resources.compute - 50);
+                        state.resources.data = Math.max(0, state.resources.data - 50);
+                        state.resources.research = Math.max(0, state.resources.research - 30);
+                        state.agi.alignment += 25;
+                        state.agi.risk -= 10;
+                        showMessage("Halted progress for critical alignment correction."); }
+                    },
+                    { text: "Implement quick patches, hope for the best (Lower Cost, High Risk)", effect: (state) => {
+                        state.resources.research -= 10;
+                        state.agi.alignment -= 5;
+                        state.agi.risk += 15;
+                        showMessage("Applied quick patches. The risk remains high."); }
+                    }
+                ]
+            },
+             {
+                id: 'singularity_approaching',
+                text: "The AGI's self-improvement is accelerating rapidly. The Singularity may be near.",
+                condition: (state) => state.agi.intelligence > 85 && !state.currentEvent,
+                 choices: [
+                    { text: "Guide towards beneficial outcome (Requires High Alignment)", effect: (state) => {
+                        if (state.agi.alignment >= 70) {
+                            endGame("Beneficial Singularity! You successfully guided the AGI. Humanity flourishes.");
+                        } else {
+                            state.agi.risk += 10;
+                            showMessage("Alignment was insufficient to guarantee a good outcome...");
+                        }
+                     }},
+                    { text: "Attempt to contain or slow down (High Risk, Requires Resources)", effect: (state) => {
+                        if (state.resources.compute > 100 && state.resources.research > 50) {
+                             state.agi.risk += 5; // Containment is risky
+                             state.agi.intelligence -= 5; // Slowdown attempt
+                             showMessage("Attempting to slow down the AGI...");
+                        } else {
+                            showMessage("Insufficient resources to attempt containment.");
+                            state.agi.risk += 15; // Failed containment increases risk
+                        }
+                    }}
+                ]
+            }
+            // Add more events: collaboration offers, rival AGI projects, ethical dilemmas, resource shortages, etc.
+        ];
+
+        // --- Game Logic Functions ---
+
+        // Function to display messages in the message box
+        function showMessage(message) {
+            // Clear any existing timeout
+            if (gameState.messageTimeout) {
+                clearTimeout(gameState.messageTimeout);
+            }
+
+            messageBoxEl.textContent = message;
+            messageBoxEl.classList.add('show');
+
+            // Set timeout to hide the message after 3 seconds
+            gameState.messageTimeout = setTimeout(() => {
+                messageBoxEl.classList.remove('show');
+                gameState.messageTimeout = null; // Clear the timeout ID
+            }, 3000);
+        }
+
+
+        // Update the UI display based on gameState
+        function updateUI() {
+            if (gameState.gameOver) return; // Don't update if game is over
+
+            computeValueEl.textContent = Math.round(gameState.resources.compute);
+            dataValueEl.textContent = Math.round(gameState.resources.data);
+            researchValueEl.textContent = Math.round(gameState.resources.research);
+
+            // Clamp progress values between 0 and 100
+            const intel = Math.max(0, Math.min(100, Math.round(gameState.agi.intelligence)));
+            const align = Math.max(0, Math.min(100, Math.round(gameState.agi.alignment)));
+            const risk = Math.max(0, Math.min(100, Math.round(gameState.agi.risk)));
+
+            intelligenceProgressEl.style.width = `${intel}%`;
+            intelligenceProgressEl.textContent = `${intel}%`;
+            alignmentProgressEl.style.width = `${align}%`;
+            alignmentProgressEl.textContent = `${align}%`;
+            riskProgressEl.style.width = `${risk}%`;
+            riskProgressEl.textContent = `${risk}%`;
+
+            // Update progress bar colors based on value (optional)
+            alignmentProgressEl.classList.toggle('bg-green-500', align >= 50);
+            alignmentProgressEl.classList.toggle('bg-yellow-500', align < 50 && align >= 30);
+            alignmentProgressEl.classList.toggle('bg-red-500', align < 30);
+
+            riskProgressEl.classList.toggle('bg-green-500', risk < 20);
+            riskProgressEl.classList.toggle('bg-yellow-500', risk >= 20 && risk < 50);
+            riskProgressEl.classList.toggle('bg-red-500', risk >= 50);
+
+
+            turnCounterEl.textContent = gameState.turn;
+
+            // Display current event text or default message
+            if (!gameState.currentEvent) {
+                 eventTextEl.textContent = "Ready for the next phase. Click 'Next Turn'.";
+            } else {
+                 eventTextEl.textContent = gameState.currentEvent.text;
+            }
+
+            // Clear and repopulate choices
+            choicesAreaEl.innerHTML = '';
+            if (gameState.currentEvent && gameState.currentEvent.choices.length > 0) {
+                gameState.currentEvent.choices.forEach((choice, index) => {
+                    const button = document.createElement('button');
+                    button.textContent = choice.text;
+                    button.classList.add('choice-button', 'bg-gray-200', 'hover:bg-gray-300', 'text-gray-800', 'font-medium', 'py-2', 'px-4', 'rounded-lg', 'w-full', 'text-left');
+                    // Add specific styling based on potential impact (optional)
+                    if (choice.text.toLowerCase().includes("alignment") || choice.text.toLowerCase().includes("safety")) {
+                        button.classList.add('border-l-4', 'border-green-500');
+                    } else if (choice.text.toLowerCase().includes("risk") || choice.text.toLowerCase().includes("secretive")) {
+                         button.classList.add('border-l-4', 'border-red-500');
+                    } else if (choice.text.toLowerCase().includes("intelligence") || choice.text.toLowerCase().includes("boost")) {
+                         button.classList.add('border-l-4', 'border-blue-500');
+                    }
+
+                    button.onclick = () => handleChoice(index);
+                    choicesAreaEl.appendChild(button);
+                });
+                nextTurnButton.style.display = 'none'; // Hide next turn button when choices are present
+            } else {
+                 nextTurnButton.style.display = 'inline-block'; // Show next turn button
+            }
+        }
+
+        // Handle player making a choice
+        function handleChoice(choiceIndex) {
+            if (!gameState.currentEvent || gameState.gameOver) return;
+
+            const choice = gameState.currentEvent.choices[choiceIndex];
+            if (choice.effect) {
+                choice.effect(gameState); // Apply the choice's effect
+            }
+
+            gameState.currentEvent = null; // Clear the current event after choice
+            // Don't automatically advance turn here, let the player click "Next Turn"
+            updateUI();
+            checkGameOver(); // Check if the choice led to a game over
+        }
+
+        // Find and trigger a relevant event
+        function triggerEvent() {
+            gameState.currentEvent = null; // Clear previous event reference
+
+            // Filter potential events based on conditions
+            // *** CHANGE HERE: Removed the !event.triggered check ***
+            const potentialEvents = events.filter(event =>
+                event.condition && // Check if event has a condition
+                event.condition(gameState) // Evaluate the condition
+            );
+
+             // Add a chance for a generic resource event if no specific event triggers
+            // Only trigger generic if no specific event is already set for the turn
+            if (potentialEvents.length === 0 && !gameState.currentEvent && Math.random() < 0.2) { // 20% chance for a generic event
+                const genericEventType = Math.random();
+                if (genericEventType < 0.33) { // Compute fluctuation
+                    const change = Math.round((Math.random() - 0.4) * 20); // -8 to +12
+                    gameState.resources.compute += change;
+                    showMessage(`Compute resources fluctuated by ${change}.`);
+                } else if (genericEventType < 0.66) { // Data influx/loss
+                    const change = Math.round((Math.random() - 0.4) * 20); // -8 to +12
+                    gameState.resources.data += change;
+                     showMessage(`Data availability fluctuated by ${change}.`);
+                } else { // Research inspiration/block
+                     const change = Math.round((Math.random() - 0.4) * 10); // -4 to +6
+                    gameState.resources.research += change;
+                     showMessage(`Research progress fluctuated by ${change}.`);
+                }
+                 // No specific event object is set for generic fluctuations
+            }
+
+
+            if (potentialEvents.length > 0) {
+                // Select a random event from the potential ones
+                const event = potentialEvents[Math.floor(Math.random() * potentialEvents.length)];
+                gameState.currentEvent = event;
+                // *** CHANGE HERE: Removed event.triggered = true; ***
+
+                // Apply immediate effects if any
+                if (event.immediateEffect) {
+                    event.immediateEffect(gameState);
+                     // Clear currentEvent if it only had an immediate effect and no choices
+                    if (!event.choices || event.choices.length === 0) {
+                         gameState.currentEvent = null;
+                    }
+                }
+            }
+
+            // Update the UI regardless of whether a specific event triggered,
+            // to show resource changes or generic event messages.
+            updateUI();
+
+        }
+
+        // Check for game over conditions
+        function checkGameOver() {
+            if (gameState.gameOver) return; // Already over
+
+            let reason = null;
+            if (gameState.agi.risk >= 100) {
+                reason = "Catastrophic Risk! The AGI project led to an uncontrollable negative outcome.";
+            } else if (gameState.agi.intelligence >= 100 && gameState.agi.alignment < 20) {
+                 reason = "Unaligned Superintelligence! The AGI achieved massive intelligence but its goals conflict with humanity's.";
+            } else if (gameState.resources.compute <= 0 && gameState.resources.data <= 0 && gameState.resources.research <= 0) {
+                reason = "Project Stalled! You ran out of essential resources. The AGI development has failed.";
+            } else if (gameState.agi.intelligence >= 100 && gameState.agi.alignment >= 70) { // Added explicit win condition check here
+                 reason = "Beneficial Singularity! You successfully guided the AGI. Humanity flourishes.";
+            }
+
+
+            if (reason) {
+                endGame(reason);
+            }
+        }
+
+        // End the game
+        function endGame(message) {
+            gameState.gameOver = true;
+            eventTextEl.textContent = `Game Over: ${message}`;
+            // Style the game over message based on win/loss
+            if (message.startsWith("Beneficial Singularity")) {
+                 eventTextEl.classList.remove('text-red-600');
+                 eventTextEl.classList.add('text-green-600', 'font-bold');
+            } else {
+                 eventTextEl.classList.remove('text-green-600');
+                 eventTextEl.classList.add('text-red-600', 'font-bold');
+            }
+            choicesAreaEl.innerHTML = ''; // Clear choices
+            nextTurnButton.textContent = 'Restart Game';
+            nextTurnButton.style.display = 'inline-block';
+            nextTurnButton.onclick = () => window.location.reload(); // Simple restart by reloading page
+            showMessage("The simulation has ended."); // Use message box for final status
+        }
+
+
+        // Main Game Loop Function (triggered by Next Turn button)
+        function nextTurn() {
+            if (gameState.gameOver) return;
+
+            gameState.turn++;
+
+            // --- Passive Resource Generation/Consumption (Example) ---
+            // Simulate some base resource usage/gain per turn
+            gameState.resources.compute -= 5; // Consumes compute
+            gameState.resources.data += 10; // Generates some data
+            gameState.resources.research += 2; // Slow passive research gain
+
+            // Ensure resources don't go below zero (unless intended)
+            gameState.resources.compute = Math.max(0, gameState.resources.compute);
+            gameState.resources.data = Math.max(0, gameState.resources.data);
+            gameState.resources.research = Math.max(0, gameState.resources.research);
+            gameState.agi.alignment = Math.max(0, gameState.agi.alignment);
+            gameState.agi.risk = Math.max(0, gameState.agi.risk);
+
+
+            // --- Trigger Events ---
+            triggerEvent(); // Check for and display new events/choices
+
+            // --- Check Game Over ---
+            // Moved UI update inside triggerEvent to handle all cases (event, generic, none)
+            checkGameOver();
+        }
+
+        // --- Event Listeners ---
+        nextTurnButton.addEventListener('click', () => {
+            if (gameState.gameOver) {
+                window.location.reload(); // Restart if game is over
+            } else {
+                // Only proceed if there isn't a choice waiting to be made
+                if (!gameState.currentEvent || !gameState.currentEvent.choices || gameState.currentEvent.choices.length === 0) {
+                   nextTurn();
+                } else {
+                    showMessage("Please make a choice for the current event.");
+                }
+            }
+        });
+
+        // --- Initial Game Setup ---
+        updateUI(); // Initial UI rendering
+
+    </script>
+
+</body>
+</html>
